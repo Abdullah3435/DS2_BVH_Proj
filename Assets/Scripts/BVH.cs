@@ -72,13 +72,17 @@ public class BVHTree
         List<Bounds> objectBounds = new List<Bounds>();
         foreach (GameObject obj in objects)
         {
-            objectBounds.Add(obj.GetComponent<Renderer>().bounds);
+            if (obj.GetComponent<Renderer>())
+            {
+                objectBounds.Add(obj.GetComponent<Renderer>().bounds);
+            }
         }
         return objectBounds;
     }
 
     private Bounds CalculateBounds(List<Bounds> objectBounds, List<int> objectIndices)
     {
+        Debug.Log("The Indice is" + objectIndices[0]);
         Bounds bounds = new Bounds(objectBounds[objectIndices[0]].center, Vector3.zero);
         foreach (int index in objectIndices)
         {

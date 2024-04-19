@@ -27,7 +27,7 @@ public class Objectmovement : MonoBehaviour
             SimulationMG.Instance.UnRegisterCollision();
         }
 
-        //SimulationMG.Instance.RemoveObj(this.gameObject); // have to debug it later on if its working or not 
+        SimulationMG.Instance.RemoveObj(this.gameObject); // have to debug it later on if its working or not 
         Destroy(gameObject);
     }
 
