@@ -17,13 +17,19 @@ public class SimulationMG : MonoBehaviour
     public int TotalCollisions;
     public static SimulationMG Instance;
 
+    [Header("BVH")]
+    public bool VisualizeBVH;
+    public bool VisualizeBVH_Collisions;
+
+
     private int Collisioncalls;
     private Collision_System current_system;
+
     [SerializeField]
     private List<GameObject> allobjs;  // references  alto keep track of all created objs
 
     private BVHTree bvhTree; // BVH tree instance
-
+    
     // Start is called before the first frame update
     void Start()
     {
@@ -97,7 +103,7 @@ public class SimulationMG : MonoBehaviour
         }
     }
 
-    public void RemoveObj(GameObject obj) // registering objects typically from the spawners
+    public void RemoveObj(GameObject obj) // removing objects typically from the spawners
     {
         allobjs.Remove(obj);
 
@@ -126,6 +132,19 @@ public class SimulationMG : MonoBehaviour
         switch (current_system)
         {
             case Collision_System.BVH:
+                UpdateBVHTree();
+                int bvhcolls = 0;
+                foreach (GameObject obj in allobjs)
+                {
+                    List<GameObject> collidedobjs = bvhTree.GetCollisions(obj);
+                    if(collidedobjs.Count>=1)
+                    {
+                        bvhcolls++;
+                        Debug.Log("BVH Collision detected") ;
+                    }
+                }
+                TotalCollisions = bvhcolls;
+
                 break;
 
             case Collision_System.Unity_Collision_Detection:
@@ -138,7 +157,7 @@ public class SimulationMG : MonoBehaviour
                 break;
 
             case Collision_System.Brute_Force:
-                CheckCollisions_Using_BF();
+                CheckCollisions_Using_BF() ;
                 // functionality for Spatial hashing System
                 break;
 
@@ -311,7 +330,7 @@ public class SimulationMG : MonoBehaviour
         }
     }
 
-    private void DrawBoundsWireframe(Bounds bounds, Color color)
+    public void DrawBoundsWireframe(Bounds bounds, Color color)
     {
         Vector3 center = bounds.center;
         Vector3 extents = bounds.extents;

@@ -30,25 +30,26 @@ public class BVHTree
         }
         root = ConstructBVHTreeRecursive(objectBounds, objectIndices);
     }
-
     private Node ConstructBVHTreeRecursive(List<Bounds> objectBounds, List<int> objectIndices)
     {
         Node node = new Node();
         node.bounds = CalculateBounds(objectBounds, objectIndices);
 
-        if (objectIndices.Count == 1)
+        // Base case: if there's one object or no objects, stop splitting.
+        if (objectIndices.Count <= 1)
         {
             node.objectIndices = objectIndices;
             return node;
         }
 
-        // Split objects into two groups based on the longest axis of the bounding box
+        // Determine the longest axis to split the objects along.
         int longestAxis = node.bounds.size.x > node.bounds.size.y ? (node.bounds.size.x > node.bounds.size.z ? 0 : 2) : (node.bounds.size.y > node.bounds.size.z ? 1 : 2);
         float splitPosition = (node.bounds.max[longestAxis] + node.bounds.min[longestAxis]) / 2f;
 
         List<int> leftIndices = new List<int>();
         List<int> rightIndices = new List<int>();
 
+        // Split objects into left and right groups based on their position relative to splitPosition.
         foreach (int index in objectIndices)
         {
             if (objectBounds[index].max[longestAxis] < splitPosition)
@@ -61,8 +62,21 @@ public class BVHTree
             }
         }
 
-        node.leftChild = ConstructBVHTreeRecursive(objectBounds, leftIndices);
-        node.rightChild = ConstructBVHTreeRecursive(objectBounds, rightIndices);
+        // Check if either side is empty and adjust if necessary to prevent infinite recursion.
+        if (leftIndices.Count == 0 && rightIndices.Count > 0)
+        {
+            leftIndices.Add(rightIndices[rightIndices.Count - 1]);
+            rightIndices.RemoveAt(rightIndices.Count - 1);
+        }
+        else if (rightIndices.Count == 0 && leftIndices.Count > 0)
+        {
+            rightIndices.Add(leftIndices[leftIndices.Count - 1]);
+            leftIndices.RemoveAt(leftIndices.Count - 1);
+        }
+
+        // Recursively construct the left and right subtrees.
+        node.leftChild = leftIndices.Count > 0 ? ConstructBVHTreeRecursive(objectBounds, leftIndices) : null;
+        node.rightChild = rightIndices.Count > 0 ? ConstructBVHTreeRecursive(objectBounds, rightIndices) : null;
 
         return node;
     }
@@ -101,11 +115,19 @@ public class BVHTree
         return collisions;
     }
 
+
     private void GetCollisionsRecursive(GameObject obj, Node node, List<GameObject> collisions)
     {
         if (node.bounds.Intersects(obj.GetComponent<Renderer>().bounds))
         {
-            if (node.leftChild != null)
+            // Highlight the bounds of the current node to show the traversal path
+            if (SimulationMG.Instance.VisualizeBVH)
+            {
+                SimulationMG.Instance.DrawBoundsWireframe(node.bounds, Color.yellow);
+            }
+
+
+                if (node.leftChild != null)
             {
                 GetCollisionsRecursive(obj, node.leftChild, collisions);
             }
@@ -115,14 +137,41 @@ public class BVHTree
             }
             if (node.objectIndices != null)
             {
+                bool collision = false;
                 foreach (int index in node.objectIndices)
                 {
                     if (objects[index] != obj && obj.GetComponent<Renderer>().bounds.Intersects(objects[index].GetComponent<Renderer>().bounds))
                     {
+                        // When an actual collision is detected, highlight in a different color
+                        if (SimulationMG.Instance.VisualizeBVH_Collisions)
+                        {
+                            SimulationMG.Instance.DrawBoundsWireframe(objects[index].GetComponent<Renderer>().bounds, Color.red);
+                            TraverseBVH(obj, root);
+                        }
                         collisions.Add(objects[index]);
+                        collision = true;
                     }
                 }
             }
         }
     }
+
+    void TraverseBVH(GameObject obj, Node node) // trverse the entire partial hierarchy of bvh and simulate it using boxes
+    {
+        if (node.bounds.Intersects(obj.GetComponent<Renderer>().bounds))
+        {
+            // Highlight the bounds of the current node to show the traversal path
+            SimulationMG.Instance.DrawBoundsWireframe(node.bounds, Color.green);
+
+            if (node.leftChild != null)
+            {
+                TraverseBVH(obj, node.leftChild);
+            }
+            if (node.rightChild != null)
+            {
+                TraverseBVH(obj, node.rightChild);
+            }
+        }
+    }
+
 }
