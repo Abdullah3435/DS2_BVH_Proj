@@ -121,6 +121,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   speed: 5
+  iscolliding: 0
 --- !u!54 &4069392765785367489
 Rigidbody:
   m_ObjectHideFlags: 0

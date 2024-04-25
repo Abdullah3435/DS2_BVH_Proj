@@ -21,6 +21,9 @@ public class SimulationMG : MonoBehaviour
     public bool VisualizeBVH;
     public bool VisualizeBVH_Collisions;
 
+    [Header("Spatial Hash")]
+    public int cellsize;
+
 
     private int Collisioncalls;
     private Collision_System current_system;
@@ -29,6 +32,7 @@ public class SimulationMG : MonoBehaviour
     private List<GameObject> allobjs;  // references  alto keep track of all created objs
 
     private BVHTree bvhTree; // BVH tree instance
+    private SpatialHashing SH_grid;
     
     // Start is called before the first frame update
     void Start()
@@ -42,6 +46,7 @@ public class SimulationMG : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        
         SelectCollisionSystem();
         // Update collisions counter
         TotalCollisions = Collisioncalls / 2;
@@ -68,6 +73,7 @@ public class SimulationMG : MonoBehaviour
                     break;
 
                 case Collision_System.Spatial_Hashing:
+                    initSpatialHashing();
                     // functionality for Spatial hashing System
                     break;
 
@@ -153,6 +159,20 @@ public class SimulationMG : MonoBehaviour
                 break;
 
             case Collision_System.Spatial_Hashing:
+                SH_grid.cellSize = cellsize;
+                SH_grid.RehashAllObjects(allobjs);
+                int sp_Colls = 0;
+                foreach (GameObject obj in allobjs)
+                {
+                    GameObject collidedobj = SH_grid.GetFirstCollision(obj);
+                    if (collidedobj)
+                    {
+                        sp_Colls++;
+                        Debug.Log("SpatialHash Collision detected");
+                    }
+                }
+                SH_grid.DrawAllCellBounds();
+                TotalCollisions = sp_Colls ;
                 // functionality for Spatial hashing System
                 break;
 
@@ -201,6 +221,13 @@ public class SimulationMG : MonoBehaviour
     }
     #endregion
 
+    #region SpatialHAshing
+    void initSpatialHashing()
+    {
+        SH_grid = new SpatialHashing(20);
+    }
+
+    #endregion
 
     #region Envronment_Setup_Based_On_Current_Collision_Detection
 
