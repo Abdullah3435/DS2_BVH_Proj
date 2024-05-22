@@ -2,11 +2,12 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.PlasticSCM.Editor.WebApi;
 using UnityEngine;
+using System.Diagnostics;
 
 public enum Collision_System
 {
     BVH,
-    Unity_Collision_Detection,
+    Unity_Collisions,
     Spatial_Hashing,
     Brute_Force
 }
@@ -22,18 +23,20 @@ public class SimulationMG : MonoBehaviour
     public bool VisualizeBVH_Collisions;
 
     [Header("Spatial Hash")]
-    public int cellsize;
+    [Range(2, 1000)]
+    public int cellsize = 10;
+
 
 
     private int Collisioncalls;
     private Collision_System current_system;
 
     [SerializeField]
-    private List<GameObject> allobjs;  // references  alto keep track of all created objs
+    public List<GameObject> allobjs;  // references  alto keep track of all created objs
 
     private BVHTree bvhTree; // BVH tree instance
-    private SpatialHashing SH_grid;
-    
+    public SpatialHashing SH_grid;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -46,7 +49,7 @@ public class SimulationMG : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+
         SelectCollisionSystem();
         // Update collisions counter
         TotalCollisions = Collisioncalls / 2;
@@ -67,7 +70,7 @@ public class SimulationMG : MonoBehaviour
                     CreateBVHTree(); // create bvh
                     break;
 
-                case Collision_System.Unity_Collision_Detection:
+                case Collision_System.Unity_Collisions:
                     Setup_Unity_Collisions();
                     // functionality for Unity's COllision detection System
                     break;
@@ -133,51 +136,71 @@ public class SimulationMG : MonoBehaviour
             Destroy(gameObject);
         }
     }
+    public double BVH_Construction_Time,COllision_Time,SH_rehash_time;
     void UpdateCollisions()
     {
+        Stopwatch stopwatch = new Stopwatch();
         switch (current_system)
         {
             case Collision_System.BVH:
+                stopwatch.Start(); // Start timing
                 UpdateBVHTree();
-                int bvhcolls = 0;
+                stopwatch.Stop(); // Stop timing
+                BVH_Construction_Time = stopwatch.Elapsed.TotalMilliseconds; // Get elapsed time in milliseconds
+
+                int bvhColls = 0;
                 foreach (GameObject obj in allobjs)
                 {
-                    List<GameObject> collidedobjs = bvhTree.GetCollisions(obj);
-                    if(collidedobjs.Count>=1)
+                    stopwatch.Restart(); // Reset and start the stopwatch
+
+                    GameObject collidedObj = bvhTree.GetCollisions(obj);
+                    stopwatch.Stop(); // Stop timing
+                    COllision_Time = stopwatch.Elapsed.TotalMilliseconds; // Get elapsed time in milliseconds
+
+                    if (collidedObj)
                     {
-                        bvhcolls++;
-                        Debug.Log("BVH Collision detected") ;
+                        bvhColls++;
+                        UnityEngine.Debug.Log("BVH Collision detected");
                     }
                 }
-                TotalCollisions = bvhcolls;
-
+                TotalCollisions = bvhColls;
                 break;
 
-            case Collision_System.Unity_Collision_Detection:
+            case Collision_System.Unity_Collisions:
                 // doing nothing here as unity itself is registering collisions using the register and unregister methods
                 // functionality for Unity's COllision detection System
                 break;
 
             case Collision_System.Spatial_Hashing:
                 SH_grid.cellSize = cellsize;
+                stopwatch.Start();
                 SH_grid.RehashAllObjects(allobjs);
+                stopwatch.Stop();
+                SH_rehash_time = stopwatch.Elapsed.TotalMilliseconds;
                 int sp_Colls = 0;
                 foreach (GameObject obj in allobjs)
                 {
+                    stopwatch.Restart();
                     GameObject collidedobj = SH_grid.GetFirstCollision(obj);
+                    stopwatch.Stop() ;
+                    COllision_Time = stopwatch.Elapsed.TotalMilliseconds;
+
                     if (collidedobj)
                     {
                         sp_Colls++;
-                        Debug.Log("SpatialHash Collision detected");
+                        UnityEngine.Debug.Log("SpatialHash Collision detected");
                     }
                 }
                 SH_grid.DrawAllCellBounds();
-                TotalCollisions = sp_Colls ;
+                TotalCollisions = sp_Colls;
                 // functionality for Spatial hashing System
                 break;
 
             case Collision_System.Brute_Force:
-                CheckCollisions_Using_BF() ;
+                stopwatch.Start();
+                CheckCollisions_Using_BF();
+                stopwatch.Stop();
+                COllision_Time = stopwatch.Elapsed.TotalMilliseconds;
                 // functionality for Spatial hashing System
                 break;
 
@@ -207,7 +230,7 @@ public class SimulationMG : MonoBehaviour
     }
 
     // Get collisions using BVH tree
-    public List<GameObject> GetCollisionsBVH(GameObject obj)
+    public GameObject GetCollisionsBVH(GameObject obj)
     {
         if (bvhTree != null)
         {
@@ -215,8 +238,8 @@ public class SimulationMG : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("BVH tree not initialized.");
-            return new List<GameObject>();
+            UnityEngine.Debug.LogWarning("BVH tree not initialized.");
+            return null;
         }
     }
     #endregion
@@ -251,7 +274,7 @@ public class SimulationMG : MonoBehaviour
 
     public void Setup_Brute_Force()
     {
-        foreach(GameObject obj in allobjs)
+        foreach (GameObject obj in allobjs)
         {
             obj.GetComponent<Collider>().enabled = false;
         }
@@ -297,7 +320,7 @@ public class SimulationMG : MonoBehaviour
             Bounds bound1 = obj1.GetComponent<Renderer>().bounds;
 
 
-           
+
 
             for (int j = 0; j < allobjs.Count; j++)
             {
@@ -314,18 +337,18 @@ public class SimulationMG : MonoBehaviour
 
                     if (bound1.Intersects(bound2))
                     {
-                        Debug.Log($"Object {obj1.name} Bounding Volume:");
-                        Debug.Log($"Center: {bound1.center}");
-                        Debug.Log($"Size: {bound1.size}");
-                        Debug.Log($"Min: {bound1.min}");
-                        Debug.Log($"Max: {bound1.max}");
+                        UnityEngine.Debug.Log($"Object {obj1.name} Bounding Volume:");
+                        UnityEngine.Debug.Log($"Center: {bound1.center}");
+                        UnityEngine.Debug.Log($"Size: {bound1.size}");
+                        UnityEngine.Debug.Log($"Min: {bound1.min}");
+                        UnityEngine.Debug.Log($"Max: {bound1.max}");
                         DrawBoundsWireframe(bound1, Color.red);
 
-                        Debug.Log($"Object {obj1.name} Bounding Volume:");
-                        Debug.Log($"Center: {bound2.center}");
-                        Debug.Log($"Size: {bound2.size}");
-                        Debug.Log($"Min: {bound2.min}");
-                        Debug.Log($"Max: {bound2.max}");
+                        UnityEngine.Debug.Log($"Object {obj1.name} Bounding Volume:");
+                        UnityEngine.Debug.Log($"Center: {bound2.center}");
+                        UnityEngine.Debug.Log($"Size: {bound2.size}");
+                        UnityEngine.Debug.Log($"Min: {bound2.min}");
+                        UnityEngine.Debug.Log($"Max: {bound2.max}");
                         DrawBoundsWireframe(bound2, Color.red);
 
                         // Perform collision resolution
@@ -350,7 +373,7 @@ public class SimulationMG : MonoBehaviour
         // Example: Swap velocities of the objects
         if (rb1 != null && rb2 != null)
         {
-            Debug.Log("Attempting to swap velocities");
+            UnityEngine.Debug.Log("Attempting to swap velocities");
             Vector3 tempVelocity = rb1.velocity;
             rb1.velocity = rb2.velocity;
             rb2.velocity = tempVelocity;
@@ -374,20 +397,28 @@ public class SimulationMG : MonoBehaviour
         corners[7] = center + new Vector3(extents.x, extents.y, -extents.z);
 
         // Draw lines between the corner points
-        Debug.DrawLine(corners[0], corners[1], color, Time.deltaTime);
-        Debug.DrawLine(corners[1], corners[2], color, Time.deltaTime);
-        Debug.DrawLine(corners[2], corners[3], color, Time.deltaTime);
-        Debug.DrawLine(corners[3], corners[0], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[0], corners[1], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[1], corners[2], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[2], corners[3], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[3], corners[0], color, Time.deltaTime);
 
-        Debug.DrawLine(corners[4], corners[5], color, Time.deltaTime);
-        Debug.DrawLine(corners[5], corners[6], color, Time.deltaTime);
-        Debug.DrawLine(corners[6], corners[7], color, Time.deltaTime);
-        Debug.DrawLine(corners[7], corners[4], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[4], corners[5], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[5], corners[6], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[6], corners[7], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[7], corners[4], color, Time.deltaTime);
 
-        Debug.DrawLine(corners[0], corners[4], color, Time.deltaTime);
-        Debug.DrawLine(corners[1], corners[5], color, Time.deltaTime);
-        Debug.DrawLine(corners[2], corners[6], color, Time.deltaTime);
-        Debug.DrawLine(corners[3], corners[7], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[0], corners[4], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[1], corners[5], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[2], corners[6], color, Time.deltaTime);
+        UnityEngine.Debug.DrawLine(corners[3], corners[7], color, Time.deltaTime);
+    }
+    #endregion
+
+
+    #region ADDons
+    public int getbvhnodes()
+    {
+        return bvhTree.totalNodes;
     }
     #endregion
 }

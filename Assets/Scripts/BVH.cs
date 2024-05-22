@@ -14,6 +14,8 @@ public class BVHTree
     private Node root;
     private List<GameObject> objects;
 
+    public int totalNodes = 0;
+
     public BVHTree(List<GameObject> objects)
     {
         this.objects = objects;
@@ -34,6 +36,7 @@ public class BVHTree
     {
         Node node = new Node();
         node.bounds = CalculateBounds(objectBounds, objectIndices);
+        totalNodes++;  // Increment the node counter each time a node is created
 
         // Base case: if there's one object or no objects, stop splitting.
         if (objectIndices.Count <= 1)
@@ -105,18 +108,18 @@ public class BVHTree
         return bounds;
     }
 
-    public List<GameObject> GetCollisions(GameObject obj)
+    public GameObject GetCollisions(GameObject obj)
     {
-        List<GameObject> collisions = new List<GameObject>();
+
         if (root != null)
         {
-            GetCollisionsRecursive(obj, root, collisions);
+            return GetCollisionsRecursive(obj, root);
         }
-        return collisions;
+        return null; 
     }
 
 
-    private void GetCollisionsRecursive(GameObject obj, Node node, List<GameObject> collisions)
+    private GameObject GetCollisionsRecursive(GameObject obj, Node node)
     {
         if (node.bounds.Intersects(obj.GetComponent<Renderer>().bounds))
         {
@@ -126,34 +129,39 @@ public class BVHTree
                 SimulationMG.Instance.DrawBoundsWireframe(node.bounds, Color.yellow);
             }
 
-
-                if (node.leftChild != null)
+            // Check left child
+            if (node.leftChild != null)
             {
-                GetCollisionsRecursive(obj, node.leftChild, collisions);
+                GameObject leftCollision = GetCollisionsRecursive(obj, node.leftChild);
+                if (leftCollision != null) return leftCollision;
             }
+
+            // Check right child
             if (node.rightChild != null)
             {
-                GetCollisionsRecursive(obj, node.rightChild, collisions);
+                GameObject rightCollision = GetCollisionsRecursive(obj, node.rightChild);
+                if (rightCollision != null) return rightCollision;
             }
+
+            // Check current node's objects
             if (node.objectIndices != null)
             {
-                bool collision = false;
                 foreach (int index in node.objectIndices)
                 {
                     if (objects[index] != obj && obj.GetComponent<Renderer>().bounds.Intersects(objects[index].GetComponent<Renderer>().bounds))
                     {
-                        // When an actual collision is detected, highlight in a different color
+                        // Highlight the collision
                         if (SimulationMG.Instance.VisualizeBVH_Collisions)
                         {
                             SimulationMG.Instance.DrawBoundsWireframe(objects[index].GetComponent<Renderer>().bounds, Color.red);
                             TraverseBVH(obj, root);
                         }
-                        collisions.Add(objects[index]);
-                        collision = true;
+                        return objects[index];
                     }
                 }
             }
         }
+        return null; // No collision found in this path
     }
 
     void TraverseBVH(GameObject obj, Node node) // trverse the entire partial hierarchy of bvh and simulate it using boxes
